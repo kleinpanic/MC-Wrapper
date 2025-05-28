@@ -3,7 +3,7 @@
 
 set -euo pipefail
 IFS=$'\n\t'
-VERSION="1.0.3"
+VERSION="1.0.2"
 
 ### ─── ARGS & USAGE ───────────────────────────────────────────────────────────
 usage(){
@@ -407,14 +407,17 @@ process_output(){
                 rcon_send "say Teleporting $user to $x $y $z"
                 rcon_send "tp $user $x $y $z"
               elif (( ${#args[@]} == 1 )); then
-                loc="${args[0]}"
-                coords="${LOC[$loc]:-}"
-                if [[ -n $coords ]]; then
-                  rcon_send "say Teleporting $user to '$loc' ($coords)"
-                  rcon_send "tp $user $coords"
-                else
-                  rcon_send "say Unknown location '$loc'. Available: $(IFS=,; echo "${!LOC[*]}")"
-                fi
+               token="${args[0]}"
+               # 1) named location?
+               if [[ -n "${LOC[$token]:-}" ]]; then
+                 coords="${LOC[$token]}"
+                 rcon_send "say Teleporting $user to '$token' ($coords)"
+                 rcon_send "tp $user $coords"
+               else
+                 # 2) assume it's another player
+                 rcon_send "say Teleporting $user to player '$token'"
+                 rcon_send "tp $user $token"
+               fi
               else
                 rcon_send "say Usage: server tp <location|x y z>"
               fi
