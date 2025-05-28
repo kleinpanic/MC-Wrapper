@@ -3,7 +3,7 @@
 
 set -euo pipefail
 IFS=$'\n\t'
-VERSION="2.0.6"
+VERSION="1.0.2"
 
 ### ─── ARGS & USAGE ───────────────────────────────────────────────────────────
 usage(){
@@ -35,7 +35,7 @@ BLUE='\e[34m'; GREEN='\e[32m'; YELLOW='\e[33m'; RED='\e[31m'; RESET='\e[0m'
 log(){ printf "${BLUE}[%s]${RESET} %s\n" "$(date +'%F %T')" "$*"; }
 
 ### ─── DEFAULTS & CONFIG ──────────────────────────────────────────────────────
-DEFAULT_JAR="server.jar";       DEFAULT_XMX="3G"; DEFAULT_XMS="1G"
+DEFAULT_JAR="server.jar";       DEFAULT_XMX="5G"; DEFAULT_XMS="3G"
 DEFAULT_NOGUI_FLAG="nogui";     DEFAULT_LOGDIR="./logs";      DEFAULT_RESTART_DELAY=10
 DEFAULT_DISCORD_WEBHOOK="";     DEFAULT_RCON_ENABLED=false
 DEFAULT_PRIV_FILE="./privileged_users.conf"
@@ -83,7 +83,7 @@ mkdir -p "$LOGDIR" "$BACKUP_DIR"
 
 ### ─── PRIVILEGES ──────────────────────────────────────────────────────────────
 if [[ ! -f "$PRIV_FILE" ]]; then
-  echo "user:1" >"$PRIV_FILE" ## replace with your actual username as the server owner for whoever downloads this script.
+  echo "user:1" >"$PRIV_FILE"
   log "Created $PRIV_FILE"
 fi
 declare -A PRIV
@@ -288,9 +288,10 @@ process_output(){
       continue
     fi
 
-    # ─ ACHIEVEMENT 
-    if [[ $line =~ INFO\]\:\ ([^[:space:]]+)\ has\ (earned|made\ the\ advancement)\ \[(.+)\] ]]; then
-      p=${BASH_REMATCH[1]}; ach=${BASH_REMATCH[3]}
+    # ─── ADVANCEMENTS / CHALLENGES / GOALS ──────────────────────────────────────
+    if [[ $line =~ INFO\]\:\ ([^[:space:]]+)\ has\ (earned\ the\ advancement|made\ the\ advancement|completed\ the\ challenge|reached\ the\ goal)\:?\ \[([^\]]+)\] ]]; then
+      p=${BASH_REMATCH[1]}         # player name
+      ach=${BASH_REMATCH[3]}       # captured advancement/challenge/goal text
       discord_notify "🏆 $p got $ach"
       continue
     fi
@@ -427,7 +428,11 @@ process_output(){
           heap)        rcon_send "say Heap: $(get_heap)" ;;
           save)        if $prefix; then rcon_send save-all; fi ;;
           seed)        if $prefix; then SEED_REQ="$user"; rcon_send "seed"; fi ;;
-          broadcast\ *)rcon_send "say [B] ${cmd#broadcast }" ;;
+          broadcast\ *)
+            msg="${cmd#broadcast }"
+            rcon_send "say [B] $msg"
+            discord_notify "📢 Broadcast: $msg"
+            ;;
           dispatch\ *) rcon_send "${cmd#dispatch }" ;;
           addspot\ *)  if $prefix; then
                           SPOT_REQ="$user"; SPOT_NAME="${cmd#addspot }"
