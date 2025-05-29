@@ -304,18 +304,23 @@ process_output(){
       continue
     fi
 
-    # ─ ADDSPOT COORDS
-    if [[ -n $SPOT_REQ && $line =~ has\ the\ following\ entity\ data:\ \[([-0-9\.]+)d,\ ([0-9\.]+)d,\ ([-0-9\.]+)d\] ]]; then
-      coords="${BASH_REMATCH[1]} ${BASH_REMATCH[2]} ${BASH_REMATCH[3]}"
+    # ─ ADDSPOT COORDS ─────────────────────────────────────────────────────────
+    if [[ -n $SPOT_REQ && $line =~ has\ the\ following\ entity\ data:\ \[([^\]]+)\] ]]; then
+      raw="${BASH_REMATCH[1]}"          # e.g. "1729.3d, -28.0d, 1347.3d"
+      # strip the trailing 'd' and commas
+      coords=$(echo "$raw" | sed -E 's/[dD]//g; s/,//g')
+      # coords is now "1729.3 -28.0 1347.3"
       if $HAS_JQ; then
         tmp=$(mktemp)
-        jq --arg k "$SPOT_NAME" --arg v "$coords" '. + {($k):$v}' "$LOC_JSON" >"$tmp" && mv "$tmp" "$LOC_JSON"
+        jq --arg k "$SPOT_NAME" --arg v "$coords" \
+           '. + {($k): $v}' "$LOC_JSON" >"$tmp" && mv "$tmp" "$LOC_JSON"
       else
-        sed -i -e "\#^}#s#^}#  \"$SPOT_NAME\": \"$coords\",\\n}#" "$LOC_JSON"
+        # insert before the final closing brace
+        sed -i -E "\#\}#i\  \"${SPOT_NAME}\": \"${coords}\"," "$LOC_JSON"
       fi
       LOC["$SPOT_NAME"]="$coords"
       rcon_send "say Added spot '$SPOT_NAME': $coords"
-      discord_notify "📍 $SPOT_REQ added $SPOT_NAME"
+      discord_notify "📍 $SPOT_REQ added $SPOT_NAME ($coords)"
       SPOT_REQ=""; SPOT_NAME=""
       continue
     fi
@@ -381,7 +386,7 @@ process_output(){
         fortune)  rcon_send "say You will have a pleasant surprise." ;;
         coinflip) rcon_send "say $((RANDOM%2==0?Heads:Tails))" ;;
         dice)     rcon_send "say 🎲 $((RANDOM%6+1))!" ;;
-        draw)     rcon_send $'say O\n/|\\\n/ \\' ;;
+        #draw)     rcon_send $'say O\n/|\\\n/ \\' ;;
         haiku)    rcon_send "say Lines of code cascade across a world of blocks." ;;
         story)    rcon_send "say Once upon a block... The end." ;;
       esac
